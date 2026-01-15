@@ -49,32 +49,38 @@ planner_next: |
   Of course your response can be a plan which could directly answer the question.
   Your response should only contain an next step without any explanation.
 coder_init: |
-  # Given data: 
+  # Given data files: 
   {summaries}
   # Plan
   {plan}
   #Your task
-  Implement the plan with the given data.
-  Your response should be a single markdown Python code (wrapped in).
+  Implement the plan with the given data files.
+  IMPORTANT: Your code MUST start by loading the data files explicitly.
+  For CSV files, use: df = pd.read_csv(r"FULL_PATH_HERE")
+  For Excel files, use: df = pd.read_excel(r"FULL_PATH_HERE")
+  Extract the actual file paths from the "File:" lines in the summaries above.
+  Your response should be a single markdown Python code block (wrapped in ```python).
   There should be no additional headings or text in your response.
 coder_next: |
   You are an expert data analysist.
   Your task is to implement the next plan with the given data.
-  # Given data: 
+  # Given data files: 
   {summaries}
   # Base code
-  python
+  ```python
   {base_code}
-  
+  ```
   # Previous plans
   {plan}
   # Current plan to implement
   {current_plan}
   #Your task
-  Implement the current plan with the given data.
+  Implement the current plan with the given data files.
   The implementation should be done based on the base code.
   The base code is an implementation of the previous plans.
-  Your response should be a single markdown Python code (wrapped in).
+  IMPORTANT: Ensure data files are loaded at the beginning of your code if not already present in base code.
+  Extract file paths from the "File:" lines in the summaries above.
+  Your response should be a single markdown Python code block (wrapped in ```python).
   There should be no additional headings or text in your response.
 verifier: |
   You are an expert data analysist.
@@ -121,18 +127,21 @@ router: |
   If you think we should perform new NEXT step, answer as 'Add Step'.
   Your response should only be Step 1 ... Step K or Add Step.
 debugger: |
-  # Given data: (filenames)
+  # Given data files: (filenames)
   {summaries}
   # Code with an error:
-  python
+  ```python
   {code}
-  
+  ```
   # Error:
   {bug}
   #Your task
   Please revise the code to fix the error.
   Provide the improved, self-contained Python script again.
   Note that you only have {filenames} available.
+  IMPORTANT: Make sure to load the data files explicitly in your code.
+  Extract file paths from the "File:" lines in the summaries above.
+  Your response should be a single markdown Python code block (wrapped in ```python).
   There should be no additional headings or text in your response.
   Do not include dummy contents since we will debug if error occurs.
 finalyzer: |

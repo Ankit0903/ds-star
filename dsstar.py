@@ -10,7 +10,11 @@ import atexit
 import yaml
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from dotenv import load_dotenv
 from provider import ModelProvider, GeminiProvider, OllamaProvider, OpenAIProvider
+
+# Load environment variables from .env file
+load_dotenv()
 
 # =============================================================================
 # CONFIGURATION & PROMPT TEMPLATES
@@ -582,9 +586,13 @@ class DS_STAR_Agent:
                     self.controller.logger.info(f"Loaded code and results from step {step['step_id']}")
                     break
             
-            # If still not found, this is an error
+            # If still not found, restart the planning phase
             if code is None:
-                raise ValueError("Could not load code from previous steps. Please ensure the pipeline has been run before.")
+                self.controller.logger.warning("No code found in previous steps. Restarting planning phase...")
+                plan = []
+                plan.append(self.plan_next_step(query, data_desc_str, plan, ""))
+                code = self.generate_code(plan, data_desc_str)
+                exec_result = self._execute_and_debug_code(code, absolute_data_files, data_desc_str)
             if exec_result is None:
                 exec_result = ""  # Default to empty string if not found
         
@@ -664,6 +672,27 @@ def main():
 
     if not (data_files and query):
         parser.error("--data-files and --query are required for a new run.")
+
+    # Expand wildcards in data_files
+    import glob
+    expanded_files = []
+    for pattern in data_files:
+        if '*' in pattern or '?' in pattern:
+            # Handle wildcard patterns
+            data_dir = Path(config.data_dir)
+            matches = list(data_dir.glob(pattern))
+            if matches:
+                expanded_files.extend([f.name for f in matches if f.is_file()])
+            else:
+                print(f"Warning: No files matched pattern '{pattern}' in {data_dir}")
+        else:
+            expanded_files.append(pattern)
+    
+    if not expanded_files:
+        parser.error("No data files found. Check your file patterns.")
+    
+    data_files = expanded_files
+    print(f"Processing files: {', '.join(data_files)}")
 
     # Run pipeline
     result = agent.run_pipeline(query, data_files)
