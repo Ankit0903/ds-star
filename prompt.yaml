@@ -55,10 +55,18 @@ coder_init: |
   {plan}
   #Your task
   Implement the plan with the given data files.
-  IMPORTANT: Your code MUST start by loading the data files explicitly.
+  IMPORTANT: 
+  1. Your code MUST start by loading the data files explicitly.
+  2. At the END of your code, you MUST print() the final result.
+  
   For CSV files, use: df = pd.read_csv(r"FULL_PATH_HERE")
   For Excel files, use: df = pd.read_excel(r"FULL_PATH_HERE")
   Extract the actual file paths from the "File:" lines in the summaries above.
+  
+  After computing the result, print it clearly. Examples:
+  - print(result_variable)
+  - print("The answer is:", result_variable)
+  
   Your response should be a single markdown Python code block (wrapped in ```python).
   There should be no additional headings or text in your response.
 coder_next: |
@@ -78,8 +86,16 @@ coder_next: |
   Implement the current plan with the given data files.
   The implementation should be done based on the base code.
   The base code is an implementation of the previous plans.
-  IMPORTANT: Ensure data files are loaded at the beginning of your code if not already present in base code.
+  IMPORTANT: 
+  1. Ensure data files are loaded at the beginning of your code if not already present in base code.
+  2. At the END of your code, you MUST print() the final result.
+  
   Extract file paths from the "File:" lines in the summaries above.
+  
+  After computing the result, print it clearly. Examples:
+  - print(result_variable)
+  - print("The answer is:", result_variable)
+  
   Your response should be a single markdown Python code block (wrapped in ```python).
   There should be no additional headings or text in your response.
 verifier: |

@@ -7,7 +7,7 @@
 #
 # If you really want to provide an API key via this file, use:
 # api_key: "..."
-run_id: "experiment_name"
+# run_id: "experiment_name"  # Leave commented to auto-generate unique run IDs
 model_name: "gpt-4-turbo-preview"  # Valid model for Assistants API
 interactive: false
 max_refinement_rounds: 3
