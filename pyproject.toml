@@ -1,26 +1,7 @@
 [project]
 name = "ds-star"
 version = "0.1.0"
-description = "DS-STAR: A Data Science Agentic Framework"
-readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "MIT" }
-authors = [
-    {name = "Jules Lascoux", email="jlslascoux@gmail.com"},
-    { name = "Nicolas Perez"}
-]
-keywords = ["data-science", "ai", "agents", "gemini", "automation"]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: MIT License",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Programming Language :: Python :: 3.13",
-    "Topic :: Scientific/Engineering :: Artificial Intelligence",
-]
 
 dependencies = [
     "google-generativeai>=0.8.0",
@@ -32,16 +13,15 @@ dependencies = [
     "pandas>=2.3.3",
     "openpyxl>=3.1.5",
     "ollama>=0.6.1",
+    "gradio>=5.22.0",
+    "plotly>=5.20.0",
+    "matplotlib>=3.8.0",
+    "openai-agents>=0.0.15",
 ]
 
 [project.scripts]
 dsstar = "dsstar:main"
 
-[project.urls]
-Homepage = "https://github.com/JulesLscx/DS-Star"
-Repository ="https://github.com/JulesLscx/DS-Star"
-Documentation = "https://github.com/JulesLscx/DS-Star#readme"
-"Bug Tracker" = "https://github.com/JulesLscx/DS-Star/issues"
 
 [build-system]
 requires = ["hatchling"]

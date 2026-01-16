@@ -1,0 +1,294 @@
+DS-STAR PROJECT SUMMARY
+Generated: January 16, 2026
+=======================
+
+1. PROJECT OVERVIEW
+-------------------
+Purpose: Automated data analysis framework using OpenAI Assistants API
+Implementation: Multi-agent pipeline for analyzing datasets and answering analytical queries
+Architecture: Thread-based conversation flow with specialized AI assistants
+
+
+2. TECHNICAL FOUNDATION
+-----------------------
+Environment:
+- Python package manager: uv
+- Environment variables: python-dotenv
+- OpenAI API: GPT-4-turbo-preview model with Assistants API
+- Tools: code_interpreter (built-in OpenAI tool for Python code execution)
+
+State Management:
+- JSON-based persistent storage
+- Thread-based conversation context
+- File artifact storage system
+
+Prompt System:
+- YAML templates (prompt.yaml) with .format() substitution
+- Runtime message composition for assistant interactions
+
+Git Setup:
+- Repository: https://github.com/Ankit0903/ds-star
+- Branch: main
+
+
+3. CODEBASE STRUCTURE
+---------------------
+dsstar_assistants.py (Main Implementation):
+- Purpose: OpenAI Assistants API implementation with native code execution
+- Line Count: 639 lines
+- Key Components:
+  * DSConfig (lines 21-34): Configuration dataclass with run settings
+  * ArtifactStorage (lines 40-96): Persistent storage for pipeline steps
+  * AssistantAgent (lines 105-190): Wrapper for OpenAI Assistant creation and execution
+  * DS_STAR_Agent (lines 218-590): Main agent orchestrating 5 specialized assistants
+  
+Key Features:
+- Rate limit handling: Automatic retry with exponential backoff (up to 5 retries)
+- Mixed content support: Handles both text and image responses from assistants
+- Thread persistence: Reuses thread for resumed runs, creates new for fresh runs
+  
+Core Classes and Methods:
+- DSConfig: run_id, max_refinement_rounds, model_name, preserve_artifacts, runs_dir, data_dir
+- ArtifactStorage: save_step(), get_current_state(), save_state()
+- AssistantAgent: 
+  * __init__(): Create assistant with name, instructions, model, tools
+  * run(): Execute assistant on thread with retry logic for rate limits
+    - Handles rate_limit_exceeded errors with exponential backoff
+    - Supports mixed content: text and image responses
+    - Returns extracted text from all content blocks
+- DS_STAR_Agent: 
+  * upload_files(): Upload data to OpenAI
+  * analyze_data(): Initial data analysis (uses code_interpreter)
+  * plan_analysis(): Generate analysis steps (text-only)
+  * generate_and_execute_code(): Execute Python code via code_interpreter
+  * verify_solution(): Check if query is answered (text-only)
+  * finalize_output(): Format results as JSON (text-only, returns direct JSON)
+  * run_pipeline(): Main orchestration (3 phases)
+  * cleanup(): Delete OpenAI resources
+
+prompt.yaml:
+- Purpose: Centralized prompt templates
+- Templates: analyzer, planner_init, planner_next, coder_init, coder_next, verifier, 
+  router, debugger, finalyzer
+- Usage: Loaded at runtime via PROMPT_TEMPLATES.get("template_name", default)
+
+config.yaml:
+- Purpose: Default configuration values
+- Settings:
+  * model_name: gpt-4-turbo-preview
+  * max_refinement_rounds: 3
+  * preserve_artifacts: true
+  * runs_dir: runs
+  * data_dir: data
+
+.env:
+- Purpose: Store API keys
+- Content: OPENAI_API_KEY
+- Security: Protected via .gitignore
+
+.gitignore:
+- Entries: .env, .env.local
+- Purpose: Prevent API key exposure in version control
+
+
+4. ARCHITECTURE
+---------------
+Five Specialized Assistants:
+1. ANALYZER: Examines data structure, columns, types, statistics (has code_interpreter)
+2. PLANNER: Suggests analysis steps to answer the query (text-only)
+3. CODER: Writes and executes Python code using code_interpreter (has code_interpreter)
+4. VERIFIER: Validates if results answer the original question (text-only)
+5. FINALYZER: Formats output as JSON (text-only, returns direct JSON not code)
+
+Assistant Configuration:
+- All assistants use model: gpt-4-turbo-preview
+- Instructions: Minimal generic statements (rely on runtime prompts)
+- Tools: code_interpreter only for ANALYZER and CODER
+- Thread: Shared conversation context across all assistants
+- Response handling: Supports both text and image content blocks
+
+
+5. PIPELINE FLOW
+----------------
+Three-Phase Execution:
+
+PHASE 1: Upload & Analyze
+- Upload data files to OpenAI, receive file_ids
+- ANALYZER assistant examines data structure and content
+- Store analysis results in thread context
+
+PHASE 2: Iterative Planning & Execution (up to max_refinement_rounds)
+Loop:
+  - PLANNER suggests next analysis step
+  - CODER writes and executes Python code with uploaded files
+  - VERIFIER checks if query is fully answered
+  - If not complete, repeat loop
+  - If complete or max rounds reached, exit loop
+
+PHASE 3: Finalization
+- FINALYZER formats results as JSON
+- Save to runs/{run_id}/final_output/result.json
+- Return pipeline results
+
+
+6. STATE PERSISTENCE
+--------------------
+Directory Structure per Run:
+runs/{run_id}/
+  ├── pipeline_state.json
+  ├── steps/
+  │   ├── 000_analyzer/
+  │   │   ├── prompt.md
+  │   │   ├── result.txt
+  │   │   └── metadata.json
+  │   ├── 001_planner/
+  │   ├── 002_coder/
+  │   └── ...
+  ├── logs/
+  │   └── pipeline.log
+  └── final_output/
+      └── result.json
+
+pipeline_state.json Contents:
+- current_step: Step counter
+- completed_steps: List of step IDs
+- thread_id: OpenAI thread identifier
+- assistant_ids: Mapping of assistant names to IDs
+- file_ids: List of uploaded file identifiers
+
+Step Metadata:
+- timestamp: ISO format datetime
+- step_type: Agent role (analyzer, planner, coder, verifier, finalyzer)
+- step_id: Sequential ID with type suffix
+
+
+7. CLI INTERFACE
+----------------
+Command: uv run python dsstar_assistants.py [OPTIONS]
+
+Options:
+--resume <run_id>         Resume from previous run
+--data-files <files...>   Data files to analyze (supports wildcards)
+--query <text>            Analysis question
+--max-rounds <int>        Maximum refinement iterations (default: 5)
+--cleanup                 Delete OpenAI resources after completion
+
+Example:
+uv run python dsstar_assistants.py --data-files "*.csv" --query "What is the total spend for each subscription type?"
+
+
+8. KEY TECHNICAL CONCEPTS
+--------------------------
+code_interpreter:
+- Built-in OpenAI Assistants API tool
+- Executes Python code in sandboxed environment
+- Has access to uploaded files via file_ids
+- Can generate charts, analyze data, perform calculations
+- Results automatically captured and returned in response
+- Used by: ANALYZER (data exploration) and CODER (analysis execution)
+
+Assistants API Components:
+- Assistants: Persistent AI agents with instructions and tools
+- Threads: Conversation contexts maintaining history
+- Messages: User/assistant communications within threads
+- Runs: Execution of assistant on thread with message
+- Files: Uploaded data accessible to code_interpreter
+
+Thread Continuity:
+- Single thread shared across all assistants
+- Maintains conversation history throughout pipeline
+- Allows assistants to reference previous analysis
+- Enables iterative refinement of solutions
+- Creates new thread for fresh runs, reuses for resumed runs
+
+Prompt Template System:
+- Templates stored in prompt.yaml
+- Loaded at runtime: PROMPT_TEMPLATES.get("template_name", default)
+- Substituted with .format(question=..., summaries=..., plan=...)
+- Allows prompt modification without code changes
+
+Error Handling:
+- Rate limit errors: Automatic retry with exponential backoff (1s, 2s, 4s, 8s, 16s)
+- Max retries: 5 attempts before failure
+- Mixed content: Handles text and image responses gracefully
+- Image blocks: Noted in response text with file_id reference
+
+Output Format:
+- FINALYZER returns direct JSON (not code)
+- Format: {"final_answer": <actual result>}
+- Saved to: runs/{run_id}/final_output/result.json
+
+
+9. DATA FLOW
+------------
+Input Processing:
+- Data files specified via --data-files argument (supports wildcards like *.csv)
+- Files uploaded to OpenAI using client.files.create()
+- Returns file_ids stored in pipeline state
+- File_ids passed to assistants requiring data access
+
+Output Generation:
+- Each step result stored in steps/{step_id}/result.txt
+- Final output formatted as JSON by FINALYZER
+- Saved to runs/{run_id}/final_output/result.json
+- Contains key 'final_answer' with analysis results
+
+Logging:
+- All operations logged to runs/{run_id}/logs/pipeline.log
+- Console output via StreamHandler
+- Log level: INFO
+
+
+10. RESUME CAPABILITY
+---------------------
+State Restoration:
+- Use --resume <run_id> to continue interrupted pipeline
+- Loads pipeline_state.json from runs/{run_id}/
+- Restores: thread_id, file_ids, completed_steps
+- Continues from last completed step
+
+Thread Management:
+- Existing thread_id reused for resumed runs
+- New thread created for fresh runs
+- Thread persists all conversation history
+- Enables context-aware assistant responses
+
+
+11. RESOURCE CLEANUP
+--------------------
+Cleanup Method:
+- Use --cleanup flag to delete OpenAI resources
+- Deletes uploaded files via client.files.delete()
+- Deletes all assistants via client.beta.assistants.delete()
+- Prevents accumulation of resources in OpenAI account
+
+Resource Lifecycle:
+- Files: Uploaded at pipeline start, deleted at cleanup
+- Assistants: Created at agent initialization, deleted at cleanup
+- Threads: Created at pipeline start, persisted in state
+
+
+12. REPOSITORY INFORMATION
+---------------------------
+GitHub Repository: https://github.com/Ankit0903/ds-star
+Current Branch: main
+
+Files:
+- dsstar_assistants.py (main implementation)
+- prompt.yaml (prompt templates)
+- config.yaml (configuration)
+- .gitignore (.env protection)
+- README.md
+- pyproject.toml
+
+Data Directory:
+- data/customer_churn_dataset.csv
+
+Runs Directory:
+- Multiple experiment runs with full state persistence
+- Each run: pipeline_state.json, steps/, logs/, final_output/
+
+
+=======================
+END OF SUMMARY
+=======================
