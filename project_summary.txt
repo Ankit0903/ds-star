@@ -4,9 +4,9 @@ Generated: January 16, 2026
 
 1. PROJECT OVERVIEW
 -------------------
-Purpose: Automated data analysis framework using OpenAI Assistants API
+Purpose: Automated data analysis framework using LLM providers with local code execution
 Implementation: Multi-agent pipeline for analyzing datasets and answering analytical queries
-Architecture: Thread-based conversation flow with specialized AI assistants
+Architecture: Provider-based system supporting OpenAI, Gemini, and Ollama models
 
 
 2. TECHNICAL FOUNDATION
@@ -14,228 +14,327 @@ Architecture: Thread-based conversation flow with specialized AI assistants
 Environment:
 - Python package manager: uv
 - Environment variables: python-dotenv
-- OpenAI API: GPT-4-turbo-preview model with Assistants API
-- Tools: code_interpreter (built-in OpenAI tool for Python code execution)
+- Multi-provider support: OpenAI, Gemini, Ollama
+- Code execution: Local subprocess-based Python execution with timeout control
 
 State Management:
 - JSON-based persistent storage
-- Thread-based conversation context
-- File artifact storage system
+- Resume capability from any step
+- File artifact storage with exec_env for code tracking
+- State tracking via pipeline_state.json
 
 Prompt System:
 - YAML templates (prompt.yaml) with .format() substitution
-- Runtime message composition for assistant interactions
+- Runtime prompt composition for different agent types
+- Enhanced coder prompts with explicit print() instructions
 
 Git Setup:
 - Repository: https://github.com/Ankit0903/ds-star
 - Branch: main
+- Current Version: v1
 
 
 3. CODEBASE STRUCTURE
 ---------------------
-dsstar_assistants.py (Main Implementation):
-- Purpose: OpenAI Assistants API implementation with native code execution
-- Line Count: 639 lines
+dsstar.py (Main Implementation):
+- Purpose: Multi-provider LLM implementation with local code execution
+- Line Count: 706 lines
 - Key Components:
-  * DSConfig (lines 21-34): Configuration dataclass with run settings
-  * ArtifactStorage (lines 40-96): Persistent storage for pipeline steps
-  * AssistantAgent (lines 105-190): Wrapper for OpenAI Assistant creation and execution
-  * DS_STAR_Agent (lines 218-590): Main agent orchestrating 5 specialized assistants
+  * DSConfig (lines 26-47): Enhanced configuration with provider support
+  * ArtifactStorage (lines 56-145): Persistent storage for all pipeline artifacts
+  * PipelineController (lines 152-231): Execution control with resume/edit capabilities
+  * DS_STAR_Agent (lines 238-619): Main orchestrator with 7 specialized agents
   
 Key Features:
-- Rate limit handling: Automatic retry with exponential backoff (up to 5 retries)
-- Mixed content support: Handles both text and image responses from assistants
-- Thread persistence: Reuses thread for resumed runs, creates new for fresh runs
+- Multi-provider support: Automatic provider detection based on model name
+- Local code execution: subprocess.run() with stdout/stderr capture
+- Auto-debugging: Automatic error correction loop with configurable attempts
+- Resume capability: Can continue from any interrupted run
+- Interactive mode: Pause between steps for review
+- Edit mode: Manually edit generated code and re-execute
+- Wildcard file support: Glob patterns for data files
   
 Core Classes and Methods:
-- DSConfig: run_id, max_refinement_rounds, model_name, preserve_artifacts, runs_dir, data_dir
-- ArtifactStorage: save_step(), get_current_state(), save_state()
-- AssistantAgent: 
-  * __init__(): Create assistant with name, instructions, model, tools
-  * run(): Execute assistant on thread with retry logic for rate limits
-    - Handles rate_limit_exceeded errors with exponential backoff
-    - Supports mixed content: text and image responses
-    - Returns extracted text from all content blocks
+- DSConfig: run_id (auto-generated UUID), max_refinement_rounds, model_name, 
+  auto_debug, debug_attempts, execution_timeout, agent_models (per-agent model config)
+- ArtifactStorage: 
+  * save_step(): Saves prompt, code, result, metadata for each step
+  * get_step(): Retrieve artifacts from previous steps
+  * list_steps(): Get chronological list of all steps
+  * get_current_state()/save_state(): Pipeline state persistence
+- PipelineController:
+  * execute_step(): Run step with artifact preservation
+  * should_execute_step(): Resume logic
+  * edit_last_step_code(): Manual code editing capability
 - DS_STAR_Agent: 
-  * upload_files(): Upload data to OpenAI
-  * analyze_data(): Initial data analysis (uses code_interpreter)
-  * plan_analysis(): Generate analysis steps (text-only)
-  * generate_and_execute_code(): Execute Python code via code_interpreter
-  * verify_solution(): Check if query is answered (text-only)
-  * finalize_output(): Format results as JSON (text-only, returns direct JSON)
-  * run_pipeline(): Main orchestration (3 phases)
-  * cleanup(): Delete OpenAI resources
+  * analyze_data(): File analysis with code generation and execution
+  * plan_next_step(): Generate next analysis step (planner_init or planner_next)
+  * generate_code(): Create Python code (coder_init or coder_next)
+  * verify_plan(): Check if solution is complete
+  * route_plan(): Decide next action (add step or fix existing)
+  * finalize_solution(): Format final output as JSON
+  * _execute_code(): Local subprocess execution with timeout
+  * _execute_and_debug_code(): Auto-debugging loop
+  * run_pipeline(): 3-phase orchestration with resume support
+
+provider.py:
+- Purpose: Abstract provider interface for multiple LLM backends
+- Classes:
+  * ModelProvider: Abstract base class
+  * OpenAIProvider: OpenAI API integration
+  * GeminiProvider: Google Gemini API integration  
+  * OllamaProvider: Local Ollama model integration
+- Methods:
+  * provider_instance(): Detect if model name matches provider
+  * generate_content(): Universal content generation interface
 
 prompt.yaml:
 - Purpose: Centralized prompt templates
 - Templates: analyzer, planner_init, planner_next, coder_init, coder_next, verifier, 
   router, debugger, finalyzer
-- Usage: Loaded at runtime via PROMPT_TEMPLATES.get("template_name", default)
+- Usage: Loaded at runtime via PROMPT_TEMPLATES.get("template_name")
+- **v1 Enhancement**: Added explicit print() instructions to coder_init and coder_next
+  to ensure execution output is captured
 
 config.yaml:
 - Purpose: Default configuration values
 - Settings:
-  * model_name: gpt-4-turbo-preview
+  * model_name: gpt-4-turbo-preview (or other provider model)
   * max_refinement_rounds: 3
   * preserve_artifacts: true
   * runs_dir: runs
   * data_dir: data
+  * agent_models: (optional) per-agent model overrides
+- **v1 Fix**: Removed hardcoded run_id to enable unique auto-generated IDs
 
 .env:
-- Purpose: Store API keys
-- Content: OPENAI_API_KEY
+- Purpose: Store API keys for different providers
+- Content: OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_API_KEY
 - Security: Protected via .gitignore
 
 .gitignore:
-- Entries: .env, .env.local
-- Purpose: Prevent API key exposure in version control
+- Entries: .env, .env.local, runs/*, __pycache__/
+- Purpose: Prevent API key exposure and exclude run artifacts
 
 
 4. ARCHITECTURE
 ---------------
-Five Specialized Assistants:
-1. ANALYZER: Examines data structure, columns, types, statistics (has code_interpreter)
-2. PLANNER: Suggests analysis steps to answer the query (text-only)
-3. CODER: Writes and executes Python code using code_interpreter (has code_interpreter)
-4. VERIFIER: Validates if results answer the original question (text-only)
-5. FINALYZER: Formats output as JSON (text-only, returns direct JSON not code)
+Seven Specialized Agents (all use configurable LLM providers):
+1. ANALYZER: Examines data structure, generates code to describe data
+2. PLANNER: Suggests analysis steps (planner_init for first step, planner_next for subsequent)
+3. CODER: Writes Python code to implement the plan
+4. VERIFIER: Validates if results answer the query (Yes/No)
+5. ROUTER: Decides next action (Add Step or fix existing step)
+6. DEBUGGER: Fixes code errors automatically
+7. FINALYZER: Formats final output as JSON
 
-Assistant Configuration:
-- All assistants use model: gpt-4-turbo-preview
-- Instructions: Minimal generic statements (rely on runtime prompts)
-- Tools: code_interpreter only for ANALYZER and CODER
-- Thread: Shared conversation context across all assistants
-- Response handling: Supports both text and image content blocks
+Pipeline Flow:
+```
+Phase 1: Data Analysis
+  → For each file: ANALYZER generates code → Execute locally → Store description
 
+Phase 2: Iterative Planning & Execution  
+  Loop (max_refinement_rounds):
+    → PLANNER: Suggest next step
+    → CODER: Generate Python code (with print statements!)
+    → Execute code locally (subprocess)
+    → VERIFIER: Check if complete
+    → If incomplete:
+        → ROUTER: Decide action
+        → Continue to next iteration
+    → If errors: DEBUGGER fixes code automatically
 
-5. PIPELINE FLOW
-----------------
-Three-Phase Execution:
+Phase 3: Finalization
+  → FINALYZER: Generate code to format output as JSON
+  → Execute → Save to result.json
+```
 
-PHASE 1: Upload & Analyze
-- Upload data files to OpenAI, receive file_ids
-- ANALYZER assistant examines data structure and content
-- Store analysis results in thread context
-
-PHASE 2: Iterative Planning & Execution (up to max_refinement_rounds)
-Loop:
-  - PLANNER suggests next analysis step
-  - CODER writes and executes Python code with uploaded files
-  - VERIFIER checks if query is fully answered
-  - If not complete, repeat loop
-  - If complete or max rounds reached, exit loop
-
-PHASE 3: Finalization
-- FINALYZER formats results as JSON
-- Save to runs/{run_id}/final_output/result.json
-- Return pipeline results
-
-
-6. STATE PERSISTENCE
---------------------
-Directory Structure per Run:
-runs/{run_id}/
-  ├── pipeline_state.json
-  ├── steps/
-  │   ├── 000_analyzer/
-  │   │   ├── prompt.md
-  │   │   ├── result.txt
-  │   │   └── metadata.json
-  │   ├── 001_planner/
-  │   ├── 002_coder/
-  │   └── ...
-  ├── logs/
-  │   └── pipeline.log
-  └── final_output/
-      └── result.json
-
-pipeline_state.json Contents:
-- current_step: Step counter
-- completed_steps: List of step IDs
-- thread_id: OpenAI thread identifier
-- assistant_ids: Mapping of assistant names to IDs
-- file_ids: List of uploaded file identifiers
-
-Step Metadata:
-- timestamp: ISO format datetime
-- step_type: Agent role (analyzer, planner, coder, verifier, finalyzer)
-- step_id: Sequential ID with type suffix
+Execution Model:
+- Local subprocess execution (not cloud-based)
+- Timeout control (default 60s)
+- stdout/stderr capture
+- Persistent code files in exec_env/
+- Auto-debugging on failures
 
 
-7. CLI INTERFACE
-----------------
-Command: uv run python dsstar_assistants.py [OPTIONS]
+5. EXECUTION WORKFLOW
+---------------------
+Pipeline Phases:
 
-Options:
---resume <run_id>         Resume from previous run
---data-files <files...>   Data files to analyze (supports wildcards)
---query <text>            Analysis question
---max-rounds <int>        Maximum refinement iterations (default: 5)
---cleanup                 Delete OpenAI resources after completion
+Phase 1 - Data Analysis:
+- For each data file:
+  1. ANALYZER generates Python code to describe the file
+  2. Code executed locally via subprocess
+  3. Results stored in state (data_descriptions)
+  4. Artifacts saved: prompt.md, code.py, result.txt, metadata.json
 
-Example:
-uv run python dsstar_assistants.py --data-files "*.csv" --query "What is the total spend for each subscription type?"
+Phase 2 - Iterative Planning & Execution:
+- Initial planning with planner_init
+- Generation loop (up to max_refinement_rounds):
+  1. CODER generates Python code with print() statements
+  2. Execute code locally, capture stdout
+  3. VERIFIER checks if answer is complete
+  4. If incomplete:
+     - ROUTER decides: "Add Step" or "Step N is wrong!"
+     - If wrong step: truncate plan and retry
+     - If add step: PLANNER suggests next step
+  5. Continue with updated code (coder_next uses base_code)
+- Auto-debugging: On execution errors, DEBUGGER fixes code
 
-
-8. KEY TECHNICAL CONCEPTS
---------------------------
-code_interpreter:
-- Built-in OpenAI Assistants API tool
-- Executes Python code in sandboxed environment
-- Has access to uploaded files via file_ids
-- Can generate charts, analyze data, perform calculations
-- Results automatically captured and returned in response
-- Used by: ANALYZER (data exploration) and CODER (analysis execution)
-
-Assistants API Components:
-- Assistants: Persistent AI agents with instructions and tools
-- Threads: Conversation contexts maintaining history
-- Messages: User/assistant communications within threads
-- Runs: Execution of assistant on thread with message
-- Files: Uploaded data accessible to code_interpreter
-
-Thread Continuity:
-- Single thread shared across all assistants
-- Maintains conversation history throughout pipeline
-- Allows assistants to reference previous analysis
-- Enables iterative refinement of solutions
-- Creates new thread for fresh runs, reuses for resumed runs
-
-Prompt Template System:
-- Templates stored in prompt.yaml
-- Loaded at runtime: PROMPT_TEMPLATES.get("template_name", default)
-- Substituted with .format(question=..., summaries=..., plan=...)
-- Allows prompt modification without code changes
-
-Error Handling:
-- Rate limit errors: Automatic retry with exponential backoff (1s, 2s, 4s, 8s, 16s)
-- Max retries: 5 attempts before failure
-- Mixed content: Handles text and image responses gracefully
-- Image blocks: Noted in response text with file_id reference
-
-Output Format:
-- FINALYZER returns direct JSON (not code)
-- Format: {"final_answer": <actual result>}
-- Saved to: runs/{run_id}/final_output/result.json
+Phase 3 - Finalization:
+- FINALYZER generates code to format output as JSON
+- Code executed locally
+- Result saved to final_output/result.json
 
 
-9. DATA FLOW
+6. STATE PERSISTENCE & RESUME
+------------------------------
+Run Directory Structure:
+```
+runs/
+  {run_id}/                    # e.g., 20260116_193743_d75c42
+    pipeline_state.json        # Current step, plan, data descriptions
+    steps/
+      000_analyzer/
+        prompt.md
+        code.py
+        result.txt
+        metadata.json
+      001_planner_init/
+        prompt.md
+        result.txt
+        metadata.json
+      002_coder/
+        prompt.md
+        code.py
+        result.txt
+        metadata.json
+      ...
+    exec_env/                  # Persistent code files
+      exec_8a4b2c1d.py
+      exec_f3e9d0a2.py
+      ...
+    data_cache/
+    logs/
+      pipeline.log
+      execution.log
+    final_output/
+      result.json
+```
+
+Resume Capability:
+- Use --resume {run_id} to continue from interruption
+- System checks pipeline_state.json for current_step
+- Skips completed steps, resumes from next
+- Loads data_descriptions and plan from state
+- If code missing, restarts planning phase
+
+
+7. CLI USAGE
 ------------
-Input Processing:
-- Data files specified via --data-files argument (supports wildcards like *.csv)
-- Files uploaded to OpenAI using client.files.create()
-- Returns file_ids stored in pipeline state
-- File_ids passed to assistants requiring data access
+Basic Usage:
+```bash
+uv run python dsstar.py --data-files file.xlsx --query "Your question?"
+```
 
-Output Generation:
-- Each step result stored in steps/{step_id}/result.txt
-- Final output formatted as JSON by FINALYZER
-- Saved to runs/{run_id}/final_output/result.json
-- Contains key 'final_answer' with analysis results
+Advanced Options:
+```bash
+# Resume interrupted run
+uv run python dsstar.py --resume 20260116_193743_d75c42
 
-Logging:
-- All operations logged to runs/{run_id}/logs/pipeline.log
-- Console output via StreamHandler
+# Interactive mode (pause between steps)
+uv run python dsstar.py --data-files *.csv --query "..." --interactive
+
+# Edit last generated code
+uv run python dsstar.py --resume {run_id} --edit-last
+
+# Custom config file
+uv run python dsstar.py --config my_config.yaml --data-files data.xlsx --query "..."
+
+# Max refinement rounds
+uv run python dsstar.py --data-files *.xlsx --query "..." --max-rounds 5
+
+# Wildcard patterns
+uv run python dsstar.py --data-files "*.csv" "*.xlsx" --query "..."
+```
+
+Configuration Priority:
+1. CLI arguments (highest)
+2. config.yaml defaults
+3. DSConfig dataclass defaults (lowest)
+
+
+8. KEY IMPROVEMENTS (v1)
+-------------------------
+Problem Fixed:
+- Previous implementation returned variable names instead of actual values
+  Example: {"final_answer": "most_popular_model"} instead of {"final_answer": "Mountain-200"}
+
+Root Cause:
+- Generated code didn't print results
+- Execution output (stdout) was empty
+- FINALYZER received only code, not execution results
+
+Solutions Applied:
+1. Enhanced prompt.yaml (coder_init and coder_next):
+   - Added explicit instruction: "At the END of your code, you MUST print() the final result"
+   - Provided examples: print(result_variable) or print("Answer:", result_variable)
+   
+2. Fixed config.yaml:
+   - Removed hardcoded run_id: "experiment_name"
+   - Now auto-generates unique IDs: {timestamp}_{uuid}
+   - Prevents run contamination from cached data
+
+3. Code execution improvements:
+   - subprocess.run() captures stdout properly
+   - Printed values flow to FINALYZER
+   - Final JSON contains actual computed values
+
+
+9. DEVELOPMENT WORKFLOW
+-----------------------
+Testing:
+```bash
+# Quick test
+uv run python dsstar.py --data-files bike_store_data.xlsx --query "Which is the most popular mountain bike model?"
+
+# Debug with interactive mode
+uv run python dsstar.py --data-files data.csv --query "..." --interactive
+
+# Review artifacts
+cat runs/{run_id}/steps/002_coder/code.py
+cat runs/{run_id}/steps/002_coder/result.txt
+cat runs/{run_id}/final_output/result.json
+```
+
+Common Issues:
+- "No data files found": Check file pattern and data_dir path
+- Execution timeout: Increase timeout in config or code
+- Wrong results: Check if data file matches query context
+- API errors: Verify API keys in .env file
+
+
+10. DEPENDENCIES
+----------------
+Core:
+- openai: OpenAI API client
+- google-generativeai: Gemini API client  
+- python-dotenv: Environment variable management
+- pyyaml: YAML config parsing
+
+Standard Library:
+- subprocess: Local code execution
+- json: State persistence
+- pathlib: File system operations
+- argparse: CLI argument parsing
+- logging: Pipeline logging
+- uuid: Unique ID generation
+- re: Code extraction from markdown
+
+Installation:
+```bash
+uv sync  # Install all dependencies from pyproject.toml
+```
 - Log level: INFO
 
 
