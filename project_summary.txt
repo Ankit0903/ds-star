@@ -1,0 +1,96 @@
+DS-STAR PROJECT SUMMARY
+=======================
+
+PROJECT OVERVIEW
+-----------------
+Automated data science framework with AI-powered analysis pipeline and Gradio web interface.
+Multi-agent system supporting OpenAI, Gemini, and Ollama models for dataset analysis.
+
+
+CORE COMPONENTS
+---------------
+dsstar.py: Main pipeline with 7 specialized agents (Analyzer, Planner, Coder, Verifier, Debugger, Finalizer, Plotter)
+app.py: Gradio web interface with live execution logs and multi-format file support
+provider.py: LLM provider integrations (OpenAI, Gemini, Ollama)
+
+
+KEY FEATURES
+------------
+- Real-time execution log streaming
+- Multi-format file upload (CSV, Excel, JSON, Parquet, TSV/TXT)
+- Data preview with statistics
+- English result summaries
+- Pipeline resume capability
+- Automated code generation and verification
+- Visualization generation
+
+
+TECHNICAL STACK
+----------------
+- Python 3.11+ with virtual environment (.venv)
+- gradio >= 5.22.0, pandas >= 2.3.3
+- openai >= 2.8.1, google-generativeai >= 0.8.0, ollama >= 0.6.1
+- plotly, matplotlib, pydantic, PyYAML
+
+
+CONFIGURATION
+-------------
+config.yaml: model_name, max_refinement_rounds, interactive, preserve_artifacts
+.env: OPENAI_API_KEY, GEMINI_API_KEY, OLLAMA_API_KEY
+
+
+USAGE
+-----
+Web Interface:
+  cd C:\Users\Ankit\ds-star\DS-Star
+  .venv\Scripts\python.exe app.py
+  Access: http://127.0.0.1:7861
+
+Command Line:
+  python dsstar.py --data-files data/file.csv --query "Your question" --model gpt-4-turbo-preview
+
+
+REPOSITORY
+----------
+https://github.com/Ankit0903/ds-star
+Branch: main | Version: v2.0
+
+
+DSSTAR.PY WORKFLOW
+------------------
+Multi-Agent Pipeline Process:
+
+Phase 1: Data Analysis
+  1. ANALYZER agent examines each data file
+  2. Generates Python code to extract schema, types, statistics
+  3. Executes code locally via subprocess
+  4. Stores data descriptions in pipeline state
+
+Phase 2: Iterative Planning & Execution (Loop up to max_refinement_rounds)
+  1. PLANNER agent suggests next analysis step based on query and current progress
+  2. CODER agent generates Python code to implement the planned step
+  3. Code execution with timeout control and stdout/stderr capture
+  4. VERIFIER agent checks if the analysis answers the user query (Yes/No)
+  5. If incomplete:
+     - ROUTER agent decides: "Add Step" or "Fix Step N"
+     - If error detected: DEBUGGER agent fixes code automatically
+     - Continue to next iteration with updated plan
+  6. Repeat until complete or max_refinement_rounds reached
+
+Phase 3: Finalization
+  1. FINALIZER agent generates code to format results as JSON
+  2. Executes formatting code
+  3. Saves final output to runs/{run_id}/final_output/result.json
+  4. PLOTTER agent creates visualizations (if applicable)
+
+State Management:
+- All steps saved to runs/{run_id}/steps/{step_id}/
+- Each step includes: prompt.md, code.py, result.txt, metadata.json
+- Pipeline state persisted in pipeline_state.json for resume capability
+- Execution logs stored in logs/pipeline.log
+
+Error Handling:
+- Auto-debugging loop with configurable max attempts
+- Code execution timeout (default 60s)
+- Graceful failure with detailed error messages
+- Resume capability from any interrupted step

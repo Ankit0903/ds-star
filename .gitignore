@@ -1,0 +1,21 @@
+.vscode/
+.idea/
+__pycache__/
+.venv/
+runs/
+data/
+logs/
+.DS_Store
+
+# Environment variables and secrets
+.env
+.env.local
+
+# local config (may contain secrets)
+config.yaml
+
+# uv
+.uv/
+*.egg-info/
+dist/
+build/
