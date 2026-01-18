@@ -11,11 +11,15 @@ logs/
 .env
 .env.local
 
-# local config (may contain secrets)
+# Local config (may contain secrets)
 config.yaml
 
-# uv
+# UV package manager
 .uv/
 *.egg-info/
 dist/
 build/
+
+# Python cache
+*.pyc
+*.pyo
