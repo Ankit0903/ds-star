@@ -1,16 +1,24 @@
 # DS-STAR: A Data Science Agentic Framework
 
-DS-STAR (Data Science - Structured Thought and Action) is a Python-based agentic framework for automating data science tasks. It leverages a multi-agent system powered by Google's Gemini models to analyze data, devise a plan, write and execute code, and iteratively refine the solution to answer a user's query.
+DS-STAR (Data Science - Structured Thought and Action) is a Python-based agentic framework for automating data science tasks. It features a multi-agent system supporting OpenAI, Google Gemini, and Ollama models with an interactive Gradio web interface.
 
 This project is an implementation of the paper from Google Research: [DS-STAR: A State-of-the-Art Versatile Data Science Agent](https://research.google/blog/ds-star-a-state-of-the-art-versatile-data-science-agent/). [Paper](https://arxiv.org/pdf/2509.21825)
 
+## Live Demo
+
+Access the web interface at: **http://127.0.0.1:7861** (after starting the application)
+
 ## Features
 
-- **Agentic Workflow**: Implements a pipeline of specialized AI agents (Analyzer, Planner, Coder, Verifier, Router, Debugger, Finalyzer) that collaborate to solve data science problems.
-- **Reproducibility**: Every step of the pipeline is saved, including prompts, generated code, execution results, and metadata. This allows for complete auditability and reproducibility of results.
-- **Interactive & Resume-able**: Runs can be paused and resumed. The interactive mode allows for step-by-step execution.
-- **Code Editing & Debugging**: Allows users to manually edit the generated code during a run and features an auto-debug agent to fix execution errors.
-- **Configuration-driven**: Project settings, model parameters, and run configurations are managed through a `config.yaml` file.
+- **Gradio Web Interface**: User-friendly web UI with real-time execution logs, file upload support (CSV, Excel, JSON, Parquet, TSV), and data preview
+- **Multi-Model Support**: Seamlessly switch between OpenAI GPT, Google Gemini, and Ollama models
+- **Agentic Workflow**: 7 specialized AI agents (Analyzer, Planner, Coder, Verifier, Router, Debugger, Finalizer, Plotter) collaborate to solve data science problems
+- **Real-time Streaming**: Live execution logs and progress tracking in the web interface
+- **Reproducibility**: Every step is saved with prompts, code, results, and metadata for complete auditability
+- **Interactive & Resume-able**: Runs can be paused and resumed from any step
+- **Auto-debugging**: Intelligent error detection and automatic code fixing
+- **Visualization Generation**: Automatic creation of relevant charts and plots
+- **Configuration-driven**: Flexible settings through `config.yaml` and `prompt.yaml`
 
 ## How it Works
 
@@ -32,15 +40,25 @@ All artifacts for each run are stored in the `runs/` directory, organized by `ru
 ## Project Structure
 
 ```
-/
-├─── dsstar.py               # Main script containing the agent logic and CLI
+DS-Star/
+├─── app.py                  # Gradio web interface with live execution logs
+├─── dsstar.py               # Main pipeline with 7 specialized agents
+├─── provider.py             # LLM provider integrations (OpenAI, Gemini, Ollama)
 ├─── config.yaml             # Main configuration file
 ├─── prompt.yaml             # Prompts for the different AI agents
-├─── pyproject.toml          # Project metadata and dependencies (uv format)
-├─── uv.lock                 # Locked dependency versions for reproducibility
-├─── .python-version         # Python version specification for uv
+├─── pyproject.toml          # Project metadata and dependencies
+├─── uv.lock                 # Locked dependency versions
+├─── .python-version         # Python version specification
+├─── .env                    # API keys (create this file)
 ├─── data/                   # Directory for your data files
-└─── runs/                   # Directory where all experiment runs and artifacts are stored
+│    └─── customer_churn_data.csv
+└─── runs/                   # Experiment runs and artifacts
+     └─── {run_id}/
+          ├─── pipeline_state.json
+          ├─── logs/
+          ├─── steps/
+          ├─── final_output/
+          └─── exec_env/
 ```
 
 ## Getting Started
@@ -48,7 +66,7 @@ All artifacts for each run are stored in the `runs/` directory, organized by `ru
 ### Prerequisites
 
 - Python 3.11+
-- An API key for Google's Gemini models.
+- API keys for your chosen provider (OpenAI, Gemini, or Ollama)
 - [uv](https://docs.astral.sh/uv/) package manager (recommended)
 
 ### Installation
@@ -73,33 +91,51 @@ All artifacts for each run are stored in the `runs/` directory, organized by `ru
 
 ### Configuration
 
-1.  **Set your API Key:**
-    The application requires a Gemini API key. You can set it as an environment variable:
+1.  **Set your API Keys:**
+    Create a `.env` file in the project root:
     ```bash
-    export GEMINI_API_KEY='your-api-key'
+    # .env file
+    OPENAI_API_KEY=your-openai-api-key
+    GEMINI_API_KEY=your-gemini-api-key
+    OLLAMA_API_KEY=your-ollama-api-key  # Optional
     ```
-    Alternatively, you can add it to the `config.yaml` file.
 
 2.  **Customize `config.yaml`:**
-    Create a `config.yaml` file in the root of the project and customize the settings. See the "Configuration" section below for details.
+    Configure the model and behavior settings:
 
     ```yaml
     # config.yaml
-    model_name: 'gemini-1.5-flash'
+    model_name: 'gemini-2.0-flash-exp'  # or 'gpt-4', 'ollama/llama3'
     max_refinement_rounds: 5
     interactive: false
-    # api_key: 'your-api-key' # Alternatively, place it here
-    
-    # Optional: Configure specific models for different agents
-    agent_models:
-      PLANNER: 'gpt-4'
-      CODER: 'gemini-1.5-pro'
-      VERIFIER: 'gemini-1.5-flash'
+    preserve_artifacts: true
     ```
 
 ## Usage
 
-Place your data files (e.g., `.xlsx`, `.csv`) in the `data/` directory.
+### Web Interface (Recommended)
+
+1. **Start the Gradio web application:**
+   ```bash
+   # Windows
+   .venv\Scripts\python.exe app.py
+   
+   # Linux/Mac
+   uv run python app.py
+   ```
+
+2. **Access the interface:**
+   Open your browser to **http://127.0.0.1:7861**
+
+3. **Upload and Analyze:**
+   - Upload your data file (CSV, Excel, JSON, Parquet, TSV)
+   - Enter your analysis query
+   - Select your preferred model
+   - Click "Start Analysis" and watch live execution logs
+
+### Command Line Interface
+
+Place your data files in the `data/` directory.
 
 ### Starting a New Run
 
@@ -183,7 +219,7 @@ DS-STAR supports multiple AI model providers. Each provider requires specific en
 export GEMINI_API_KEY='your-gemini-api-key'
 ```
 
-**Model Examples**:`gemini-2.5-pro`, `gemini-2.0-flash`
+**Model Examples**: `gemini-2.0-flash-exp`, `gemini-1.5-pro`, `gemini-1.5-flash`
 
 ### OpenAI
 
@@ -194,7 +230,7 @@ export GEMINI_API_KEY='your-gemini-api-key'
 export OPENAI_API_KEY='your-openai-api-key'
 ```
 
-**Model Examples**: `gpt-4`, `gpt-4-turbo`, `o1`
+**Model Examples**: `gpt-4o`, `gpt-4-turbo`, `gpt-3.5-turbo`, `o1-preview`
 
 ### Ollama
 
@@ -206,9 +242,16 @@ export OLLAMA_API_KEY='your-ollama-api-key'  # Optional
 export OLLAMA_HOST='http://localhost:11434'  # Optional, defaults to http://localhost:11434
 ```
 
-**Model Examples**: `ollama/llama3`, `ollama/qwen3-coder`
-## Contributing
+**Model Examples**: `ollama/llama3`, `ollama/qwen3-coder`, `ollama/mistral`
 
-Contributions are welcome! Please feel free to submit a pull request or open an issue for any bugs or feature requests.
+## Technical Stack
+
+- **Frontend**: Gradio 5.22.0+ for interactive web interface
+- **Data Processing**: Pandas 2.3.3+, support for multiple file formats
+- **AI Providers**: OpenAI 2.8.1+, Google Generative AI 0.8.0+, Ollama 0.6.1+
+- **Visualization**: Plotly, Matplotlib
+- **Configuration**: Pydantic, PyYAML
+- **Environment**: Python 3.11+ with UV package manager
+
 
 ```
